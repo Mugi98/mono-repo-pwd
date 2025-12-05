@@ -15,7 +15,7 @@ export function withCors(req: NextRequest, res: NextResponse) {
 
   res.headers.set(
     'Access-Control-Allow-Methods',
-    'GET,POST,PUT,DELETE,OPTIONS'
+    'GET,POST,PUT,PATCH,DELETE,OPTIONS'
   );
   res.headers.set(
     'Access-Control-Allow-Headers',
