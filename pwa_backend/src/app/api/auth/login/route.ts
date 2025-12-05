@@ -61,11 +61,13 @@ export async function POST(req: NextRequest) {
       },
       { status: 200 }
     );
+    return withCors(req, res);
   } catch (err) {
     console.error('LOGIN_ERROR', err);
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
     );
+    return withCors(req, res);
   }
 }
