@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGIN ?? 'http://localhost:3001')
-  .split(',')
-  .map(o => o.trim())
-  .filter(Boolean);
-
 export function withCors(req: NextRequest, res: NextResponse) {
   const origin = req.headers.get('origin');
 
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+  // For this project, we’ll just echo back whatever origin called us.
+  // (If you want to lock it down later, we can add a whitelist array.)
+  if (origin) {
     res.headers.set('Access-Control-Allow-Origin', origin);
     res.headers.set('Access-Control-Allow-Credentials', 'true');
+    // Helpful for caching proxies
+    res.headers.set('Vary', 'Origin');
   }
 
   res.headers.set(
