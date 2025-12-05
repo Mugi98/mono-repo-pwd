@@ -5,7 +5,7 @@
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "eslint . --ext .ts,.tsx",
-    "prisma:seed": "npx tsx prisma/seed-users.ts"
+    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "6.2.1",
@@ -21,6 +21,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "19.2.7",
     "prisma": "6.2.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
 }
