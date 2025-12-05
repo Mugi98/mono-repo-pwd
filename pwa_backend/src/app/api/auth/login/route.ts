@@ -1,45 +1,56 @@
+// pwa_backend/src/app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { withCors, handleOptions } from '@/lib/cors';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET!; // make sure this is set in .env
+const JWT_SECRET = process.env.JWT_SECRET!;
+
+// CORS preflight handler
+export function OPTIONS(req: NextRequest) {
+  return handleOptions(req);
+}
 
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
 
     if (!email || !password) {
-      return NextResponse.json(
+      const res = NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
       );
+      return withCors(req, res);
     }
 
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
-      select: { 
-        id: true, 
-        email: true, 
-        firstName: true, 
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
         lastName: true,
-        role: true, 
-        password: true }
+        role: true,
+        password: true,
+      },
     });
 
     if (!user) {
-      return NextResponse.json(
+      const res = NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
       );
+      return withCors(req, res);
     }
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      return NextResponse.json(
+      const res = NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
       );
+      return withCors(req, res);
     }
 
     const token = jwt.sign(
@@ -48,7 +59,7 @@ export async function POST(req: NextRequest) {
       { expiresIn: '1d' }
     );
 
-    return NextResponse.json(
+    const res = NextResponse.json(
       {
         user: {
           id: user.id,
@@ -61,11 +72,13 @@ export async function POST(req: NextRequest) {
       },
       { status: 200 }
     );
+    return withCors(req, res);
   } catch (err) {
     console.error('LOGIN_ERROR', err);
-    return NextResponse.json(
+    const res = NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
     );
+    return withCors(req, res);
   }
 }
