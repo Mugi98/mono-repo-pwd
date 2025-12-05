@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 import { withCors } from '@/lib/cors';
 
+type RouteParams = { params: Promise<{ id: string }> };
+
 function forbidden(req: NextRequest, message = 'Forbidden') {
   const res = NextResponse.json({ error: message }, { status: 403 });
   return withCors(req, res);
@@ -16,12 +18,13 @@ async function requireAdmin(req: NextRequest) {
 }
 
 // GET /api/admin/users/[id] – View details
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const admin = await requireAdmin(req);
     if (!admin) return forbidden(req);
 
     const { id } = await params;
+
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
@@ -50,14 +53,15 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PATCH /api/admin/users/[id] – Update basic info / status
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: RouteParams) {
   try {
     const admin = await requireAdmin(req);
     if (!admin) return forbidden(req);
 
     const { id } = await params;
     const body = await req.json();
-    console.log(body,"BODY")
+    console.log(body, 'BODY');
+
     const user = await prisma.user.update({
       where: { id },
       data: {
@@ -78,7 +82,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     });
 
     const res = NextResponse.json({ user });
-    console.log(res)
+    console.log(res);
     return withCors(req, res);
   } catch (e) {
     console.error(e);
@@ -88,7 +92,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE /api/admin/users/[id] – Delete
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
     const admin = await requireAdmin(req);
     if (!admin) return forbidden(req);
