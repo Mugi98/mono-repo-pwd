@@ -26,68 +26,6 @@ async function requireAdmin(req: NextRequest) {
   return payload && payload.role === 'ADMIN' ? payload : null;
 }
 
-// GET /api/admin/users?page=1&pageSize=10&sortKey=createdAt&sortDir=desc&search=
-export async function GET(req: NextRequest) {
-  try {
-    const admin = await requireAdmin(req);
-    if (!admin) {
-      const res = NextResponse.json({ error: 'Forbidden – admin only' }, { status: 403 });
-      return withCors(req, res);
-    }
-
-    const url = new URL(req.url);
-
-    const page = Math.max(1, Number(url.searchParams.get('page') || '1'));
-    const pageSize = Math.min(
-      100,
-      Math.max(1, Number(url.searchParams.get('pageSize') || '10')),
-    );
-
-    const search = url.searchParams.get('search')?.trim() || '';
-
-    const sortKey = url.searchParams.get('sortKey') || 'createdAt';
-    const sortDir = url.searchParams.get('sortDir') === 'asc' ? 'asc' : 'desc';
-
-    const where = search
-      ? {
-          OR: [
-            { firstName: { contains: search, mode: 'insensitive' } },
-            { lastName: { contains: search, mode: 'insensitive' } },
-            { email: { contains: search, mode: 'insensitive' } },
-          ],
-        }
-      : {};
-
-    const [rows, total] = await prisma.$transaction([
-      prisma.user.findMany({
-        where,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        orderBy: { [sortKey]: sortDir },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-          lastLogin: true,
-        },
-      }),
-      prisma.user.count({ where }),
-    ]);
-
-    const res = NextResponse.json({ rows, total, page });
-    return withCors(req, res);
-  } catch (e) {
-    console.error('ADMIN_USERS_LIST_ERROR', e);
-    const res = NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-    return withCors(req, res);
-  }
-}
-
-
 // PATCH /api/admin/users/[id] – Update basic info / status
 export async function PATCH(req: NextRequest, ctx: RouteContext) {
   try {

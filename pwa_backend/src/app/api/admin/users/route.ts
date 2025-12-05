@@ -1,83 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withCors, handleOptions } from '@/lib/cors';
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import { verifyToken } from '@/lib/auth';
+import { withCors, handleOptions } from '@/lib/cors';
 
-const JWT_SECRET = process.env.JWT_SECRET!;
-
-// CORS preflight
+// CORS preflight handler
 export function OPTIONS(req: NextRequest) {
   return handleOptions(req);
 }
 
-export async function POST(req: NextRequest) {
+async function requireAdmin(req: NextRequest) {
+  const authHeader = req.headers.get('authorization');
+  const token = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : undefined;
+
+  const payload = await verifyToken(token);
+  return payload && payload.role === 'ADMIN' ? payload : null;
+}
+
+// GET /api/admin/users?page=1&pageSize=10&sortKey=createdAt&sortDir=desc&search=
+export async function GET(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
-
-    if (!email || !password) {
-      const res = NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
+    const admin = await requireAdmin(req);
+    if (!admin) {
+      const res = NextResponse.json({ error: 'Forbidden – admin only' }, { status: 403 });
       return withCors(req, res);
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        password: true,
-      },
-    });
+    const url = new URL(req.url);
 
-    if (!user) {
-      const res = NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      );
-      return withCors(req, res);
-    }
-
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) {
-      const res = NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      );
-      return withCors(req, res);
-    }
-
-    const token = jwt.sign(
-      { sub: user.id, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '1d' }
+    const page = Math.max(1, Number(url.searchParams.get('page') || '1'));
+    const pageSize = Math.min(
+      100,
+      Math.max(1, Number(url.searchParams.get('pageSize') || '10')),
     );
 
-    const res = NextResponse.json(
-      {
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role,
+    const search = url.searchParams.get('search')?.trim() || '';
+
+    const sortKey = url.searchParams.get('sortKey') || 'createdAt';
+    const sortDir = url.searchParams.get('sortDir') === 'asc' ? 'asc' : 'desc';
+
+    const where = search
+      ? {
+          OR: [
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const [rows, total] = await prisma.$transaction([
+      prisma.user.findMany({
+        where,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { [sortKey]: sortDir },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+          lastLogin: true,
         },
-        token,
-      },
-      { status: 200 }
-    );
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    const res = NextResponse.json({ rows, total, page });
     return withCors(req, res);
-  } catch (err) {
-    console.error('LOGIN_ERROR', err);
-    const res = NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+  } catch (e) {
+    console.error('ADMIN_USERS_LIST_ERROR', e);
+    const res = NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     return withCors(req, res);
   }
 }
