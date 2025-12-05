@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
-import { withCors } from '@/lib/cors';
+import { withCors, handleOptions } from '@/lib/cors';
 
-type RouteParams = { params: Promise<{ id: string }> };
+type RouteParams = { params: { id: string } };
 
 function forbidden(req: NextRequest, message = 'Forbidden') {
   const res = NextResponse.json({ error: message }, { status: 403 });
@@ -12,9 +12,16 @@ function forbidden(req: NextRequest, message = 'Forbidden') {
 
 async function requireAdmin(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+  const token = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : undefined;
   const payload = await verifyToken(token);
   return payload && payload.role === 'ADMIN' ? payload : null;
+}
+
+// CORS preflight handler for all methods on this route
+export function OPTIONS(req: NextRequest) {
+  return handleOptions(req);
 }
 
 // GET /api/admin/users/[id] – View details
@@ -23,7 +30,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const admin = await requireAdmin(req);
     if (!admin) return forbidden(req);
 
-    const { id } = await params;
+    const { id } = params;
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -46,8 +53,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const res = NextResponse.json({ user });
     return withCors(req, res);
   } catch (e) {
-    console.error(e);
-    const res = NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('ADMIN_USER_GET_ERROR', e);
+    const res = NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    );
     return withCors(req, res);
   }
 }
@@ -58,9 +68,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     const admin = await requireAdmin(req);
     if (!admin) return forbidden(req);
 
-    const { id } = await params;
+    const { id } = params;
     const body = await req.json();
-    console.log(body, 'BODY');
+    console.log('ADMIN_USER_PATCH_BODY', body);
 
     const user = await prisma.user.update({
       where: { id },
@@ -68,7 +78,8 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         firstName: body?.firstName ?? undefined,
         lastName: body?.lastName ?? undefined,
         email: body?.email ?? undefined,
-        isActive: typeof body?.isActive === 'boolean' ? body?.isActive : undefined,
+        isActive:
+          typeof body?.isActive === 'boolean' ? body?.isActive : undefined,
       },
       select: {
         id: true,
@@ -82,11 +93,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     });
 
     const res = NextResponse.json({ user });
-    console.log(res);
     return withCors(req, res);
   } catch (e) {
-    console.error(e);
-    const res = NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('ADMIN_USER_PATCH_ERROR', e);
+    const res = NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    );
     return withCors(req, res);
   }
 }
@@ -97,7 +110,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     const admin = await requireAdmin(req);
     if (!admin) return forbidden(req);
 
-    const { id } = await params;
+    const { id } = params;
 
     await prisma.user.delete({
       where: { id },
@@ -106,8 +119,11 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     const res = NextResponse.json({ ok: true });
     return withCors(req, res);
   } catch (e) {
-    console.error(e);
-    const res = NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('ADMIN_USER_DELETE_ERROR', e);
+    const res = NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    );
     return withCors(req, res);
   }
 }
