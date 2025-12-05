@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
       return withCors(req, res);
     }
 
-    // Update lastLogin (don't need the return value)
+    // Update lastLogin in the background (we don't need the updated row)
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLogin: new Date() },
