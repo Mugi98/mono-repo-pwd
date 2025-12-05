@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 import { withCors, handleOptions } from '@/lib/cors';
 
-type RouteParams = { params: { id: string } };
+type RouteContext = { params: Promise<{ id: string }> };
 
 function forbidden(req: NextRequest, message = 'Forbidden') {
   const res = NextResponse.json({ error: message }, { status: 403 });
@@ -19,18 +19,18 @@ async function requireAdmin(req: NextRequest) {
   return payload && payload.role === 'ADMIN' ? payload : null;
 }
 
-// CORS preflight handler for all methods on this route
-export function OPTIONS(req: NextRequest) {
+// CORS preflight handler
+export function OPTIONS(req: NextRequest, _ctx: RouteContext) {
   return handleOptions(req);
 }
 
 // GET /api/admin/users/[id] – View details
-export async function GET(req: NextRequest, { params }: RouteParams) {
+export async function GET(req: NextRequest, ctx: RouteContext) {
   try {
     const admin = await requireAdmin(req);
     if (!admin) return forbidden(req);
 
-    const { id } = params;
+    const { id } = await ctx.params;
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -63,12 +63,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 }
 
 // PATCH /api/admin/users/[id] – Update basic info / status
-export async function PATCH(req: NextRequest, { params }: RouteParams) {
+export async function PATCH(req: NextRequest, ctx: RouteContext) {
   try {
     const admin = await requireAdmin(req);
     if (!admin) return forbidden(req);
 
-    const { id } = params;
+    const { id } = await ctx.params;
     const body = await req.json();
     console.log('ADMIN_USER_PATCH_BODY', body);
 
@@ -105,12 +105,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 }
 
 // DELETE /api/admin/users/[id] – Delete
-export async function DELETE(req: NextRequest, { params }: RouteParams) {
+export async function DELETE(req: NextRequest, ctx: RouteContext) {
   try {
     const admin = await requireAdmin(req);
     if (!admin) return forbidden(req);
 
-    const { id } = params;
+    const { id } = await ctx.params;
 
     await prisma.user.delete({
       where: { id },
