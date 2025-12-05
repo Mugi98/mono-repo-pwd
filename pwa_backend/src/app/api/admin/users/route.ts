@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 import { withCors, handleOptions } from '@/lib/cors';
+import type { Prisma } from '@prisma/client/edge';
+
 
 // CORS preflight handler
 export function OPTIONS(req: NextRequest) {
@@ -40,15 +42,33 @@ export async function GET(req: NextRequest) {
     const sortKey = url.searchParams.get('sortKey') || 'createdAt';
     const sortDir = url.searchParams.get('sortDir') === 'asc' ? 'asc' : 'desc';
 
-    const where = search
-      ? {
-          OR: [
-            { firstName: { contains: search, mode: 'insensitive' } },
-            { lastName: { contains: search, mode: 'insensitive' } },
-            { email: { contains: search, mode: 'insensitive' } },
-          ],
-        }
-      : {};
+    let where: Prisma.UserWhereInput | undefined;
+
+    if (search) {
+      where = {
+        OR: [
+          {
+            firstName: {
+              contains: search,
+              mode: 'insensitive' as const,
+            },
+          },
+          {
+            lastName: {
+              contains: search,
+              mode: 'insensitive' as const,
+            },
+          },
+          {
+            email: {
+              contains: search,
+              mode: 'insensitive' as const,
+            },
+          },
+        ],
+      };
+    }
+
 
     const [rows, total] = await prisma.$transaction([
       prisma.user.findMany({
