@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       { expiresIn: '1d' }
     );
 
-    return NextResponse.json(
+    const res = NextResponse.json(
       {
         user: {
           id: user.id,
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     return withCors(req, res);
   } catch (err) {
     console.error('LOGIN_ERROR', err);
-    return NextResponse.json(
+    const res = NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
     );
